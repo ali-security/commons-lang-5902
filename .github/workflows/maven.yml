@@ -31,6 +31,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up JDK ${{ matrix.java }}
+      if: always()
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
