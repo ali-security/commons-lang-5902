@@ -915,30 +915,21 @@ public class ClassUtils {
      */
     public static Class<?> getClass(
             final ClassLoader classLoader, final String className, final boolean initialize) throws ClassNotFoundException {
-        try {
-            Class<?> clazz;
-            if (namePrimitiveMap.containsKey(className)) {
-                clazz = namePrimitiveMap.get(className);
-            } else {
-                clazz = Class.forName(toCanonicalName(className), initialize, classLoader);
-            }
-            return clazz;
-        } catch (final ClassNotFoundException ex) {
-            // allow path separators (.) as inner class name separators
-            final int lastDotIndex = className.lastIndexOf(PACKAGE_SEPARATOR_CHAR);
-
-            if (lastDotIndex != -1) {
-                try {
-                    return getClass(classLoader, className.substring(0, lastDotIndex) +
-                            INNER_CLASS_SEPARATOR_CHAR + className.substring(lastDotIndex + 1),
-                            initialize);
-                } catch (final ClassNotFoundException ex2) { // NOPMD
-                    // ignore exception
+        // This method was re-written to avoid recursion and stack overflows found by fuzz testing.
+        String next = className;
+        int lastDotIndex = -1;
+        do {
+            try {
+                final Class<?> clazz = namePrimitiveMap.get(next);
+                return clazz != null ? clazz : Class.forName(toCanonicalName(next), initialize, classLoader);
+            } catch (final ClassNotFoundException ex) {
+                lastDotIndex = next.lastIndexOf(PACKAGE_SEPARATOR_CHAR);
+                if (lastDotIndex != -1) {
+                    next = next.substring(0, lastDotIndex) + INNER_CLASS_SEPARATOR_CHAR + next.substring(lastDotIndex + 1);
                 }
             }
-
-            throw ex;
-        }
+        } while (lastDotIndex != -1);
+        throw new ClassNotFoundException(next);
     }
 
     /**
@@ -1053,11 +1044,12 @@ public class ClassUtils {
      */
     private static String toCanonicalName(String className) {
         className = StringUtils.deleteWhitespace(className);
+        final String arrayMarker = "[]";
         if (className == null) {
             throw new NullPointerException("className must not be null.");
-        } else if (className.endsWith("[]")) {
+        } else if (className.endsWith(arrayMarker)) {
             final StringBuilder classNameBuffer = new StringBuilder();
-            while (className.endsWith("[]")) {
+            while (className.endsWith(arrayMarker)) {
                 className = className.substring(0, className.length() - 2);
                 classNameBuffer.append("[");
             }
