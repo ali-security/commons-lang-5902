@@ -21,5 +21,8 @@ jdk:
   - openjdk7
   - oraclejdk8
 
+before_install:
+  - export JAVA_HOME=$(/usr/libexec/java_home)
+
 after_success:
   - mvn clean
